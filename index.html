@@ -642,7 +642,7 @@ async function saveSetup() {
   err.textContent = 'Проверяю...';
 
   try {
-    const res = await fetch(`${url}?action=list&token=${encodeURIComponent(token)}`);
+    const res = await fetch(`${url}?action=list&token=${encodeURIComponent(token)}`, { redirect: 'follow' });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
 
@@ -667,7 +667,7 @@ async function saveSetup() {
 // ═══════════════════════════════════════════════════════
 async function loadDBs() {
   try {
-    const res = await fetch(`${state.scriptUrl}?action=list&token=${encodeURIComponent(state.scriptToken)}`);
+    const res = await fetch(`${state.scriptUrl}?action=list&token=${encodeURIComponent(state.scriptToken)}`, { redirect: 'follow' });
     const data = await res.json();
     state.dbs = data.bases || [];
   } catch(e) { state.dbs = []; }
@@ -1105,6 +1105,7 @@ async function scriptPost(body) {
   body.token = state.scriptToken;
   const res = await fetch(state.scriptUrl, {
     method: 'POST',
+    redirect: 'follow',
     body: JSON.stringify(body)
   });
   return await res.json();
