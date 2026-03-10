@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Pebble</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --border: #2a2a2a;
+    --text: #e8e4dc;
+    --text-dim: #6b6560;
+    --accent: #c8b89a;
+    --danger: #c0654a;
+    --chip-colors: #7eb89a, #8ba8c8, #c8a87e, #b87eb8, #c8c87e, #7eb8b8, #c87e8b, #9ab87e;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 10;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+  }
+
+  .db-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    transition: border-color 0.2s;
+  }
+  .db-selector:active { border-color: var(--accent); }
+  .db-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* ── SCREEN SYSTEM ── */
+  .screen { display: none; flex-direction: column; flex: 1; }
+  .screen.active { display: flex; }
+
+  /* ── SETUP SCREEN ── */
+  #screen-setup {
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+    gap: 24px;
+  }
+
+  .setup-logo {
+    font-family: 'Fraunces', serif;
+    font-size: 48px;
+    font-weight: 300;
+    color: var(--accent);
+    letter-spacing: -0.02em;
+  }
+
+  .setup-sub {
+    color: var(--text-dim);
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .input-group { width: 100%; max-width: 360px; display: flex; flex-direction: column; gap: 10px; }
+
+  .field-label { color: var(--text-dim); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .btn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    border-radius: 6px;
+    padding: 12px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    max-width: 360px;
+    transition: opacity 0.2s;
+    letter-spacing: 0.04em;
+  }
+  .btn:active { opacity: 0.8; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-danger { background: var(--danger); color: #fff; }
+
+  /* ── DB LIST SCREEN ── */
+  #screen-db {
+    padding: 20px;
+    gap: 12px;
+  }
+
+  .screen-title {
+    font-family: 'Fraunces', serif;
+    font-size: 18px;
+    font-weight: 300;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .db-list { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+
+  .db-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .db-item:active { border-color: var(--accent); }
+  .db-item-name { font-size: 14px; }
+  .db-item-fields { color: var(--text-dim); font-size: 11px; margin-top: 2px; }
+  .db-item-del {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 4px 8px;
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .db-item-del:active { color: var(--danger); }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    gap: 8px;
+    padding: 40px;
+    text-align: center;
+  }
+
+  /* ── ONBOARDING SCREEN ── */
+  #screen-onboard {
+    padding: 20px;
+    gap: 16px;
+  }
+
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-bottom: 8px;
+  }
+
+  .msg {
+    padding: 10px 14px;
+    border-radius: 8px;
+    line-height: 1.5;
+    max-width: 90%;
+    font-size: 13px;
+  }
+  .msg-ai {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    align-self: flex-start;
+    color: var(--text);
+  }
+  .msg-user {
+    background: #1e2a1e;
+    border: 1px solid #2a3a2a;
+    align-self: flex-end;
+    color: #a0c8a0;
+  }
+
+  .proposal-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+  .proposal-title { color: var(--text-dim); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px; }
+  .proposal-name { font-size: 15px; margin-bottom: 4px; }
+  .proposal-fields { color: var(--accent); font-size: 12px; line-height: 1.6; }
+
+  .onboard-actions { display: flex; flex-direction: column; gap: 8px; }
+
+  /* ── RECORD SCREEN ── */
+  #screen-record {
+    padding: 0;
+    gap: 0;
+  }
+
+  .record-header {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .fields-hint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 4px 0;
+  }
+
+  .field-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    transition: all 0.2s;
+  }
+  .field-badge.filled {
+    color: var(--bg);
+    border-color: transparent;
+  }
+
+  /* CHIPS AREA */
+  .chips-area {
+    flex: 1;
+    padding: 16px 20px;
+    overflow-y: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 8px;
+  }
+
+  .chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    color: var(--bg);
+    font-weight: 500;
+    animation: chipIn 0.25s ease;
+    cursor: pointer;
+  }
+
+  @keyframes chipIn {
+    from { opacity: 0; transform: scale(0.8); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .chip-label { opacity: 0.7; font-size: 10px; font-weight: 400; }
+  .chip-value { }
+  .chip-del {
+    background: rgba(0,0,0,0.2);
+    border: none;
+    color: var(--bg);
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+
+  /* BOTTOM BAR */
+  .bottom-bar {
+    padding: 12px 20px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: var(--bg);
+  }
+
+  .status-line {
+    color: var(--text-dim);
+    font-size: 11px;
+    text-align: center;
+    min-height: 16px;
+    transition: color 0.2s;
+  }
+  .status-line.listening { color: #7eb89a; }
+  .status-line.thinking { color: var(--accent); }
+  .status-line.error { color: var(--danger); }
+
+  .mic-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 24px;
+    cursor: pointer;
+    align-self: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    position: relative;
+  }
+  .mic-btn.listening {
+    border-color: #7eb89a;
+    background: #1a2e1a;
+    animation: pulse 1.5s infinite;
+  }
+  .mic-btn.thinking {
+    border-color: var(--accent);
+    background: #2a2218;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(126, 184, 154, 0.3); }
+    50% { box-shadow: 0 0 0 10px rgba(126, 184, 154, 0); }
+  }
+
+  .bottom-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .btn-sm {
+    flex: 1;
+    padding: 8px;
+    font-size: 12px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    transition: opacity 0.15s;
+  }
+  .btn-sm:active { opacity: 0.75; }
+  .btn-save { background: var(--accent); color: var(--bg); }
+  .btn-clear { background: var(--surface); color: var(--text-dim); border: 1px solid var(--border); }
+
+  /* ── EDIT MODAL ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    padding: 20px;
+    width: 100%;
+    max-width: 480px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    animation: slideUp 0.2s ease;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .modal-title { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 300; color: var(--accent); }
+  .modal-field { font-size: 11px; color: var(--text-dim); margin-bottom: 4px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+  /* ── LOADING ── */
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #1e3a1e;
+    border: 1px solid #2a5a2a;
+    color: #7eb89a;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    white-space: nowrap;
+    z-index: 200;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.error { background: #3a1e1e; border-color: #5a2a2a; color: var(--danger); }
+</style>
+</head>
+<body>
+
+<!-- ── SETUP SCREEN ── -->
+<div id="screen-setup" class="screen active">
+  <div class="setup-logo">◦ pebble</div>
+  <div class="setup-sub">Голосовой ввод данных<br>в Google Sheets</div>
+  <div class="input-group">
+    <div>
+      <div class="field-label">DeepSeek API Key</div>
+      <input type="password" id="setup-key" placeholder="sk-..." autocomplete="off">
+    </div>
+    <div>
+      <div class="field-label">Google Apps Script URL</div>
+      <input type="text" id="setup-url" placeholder="https://script.google.com/..." autocomplete="off">
+    </div>
+    <div>
+      <div class="field-label">Токен скрипта (SECRET_TOKEN)</div>
+      <input type="password" id="setup-token" placeholder="pebble_..." autocomplete="off">
+    </div>
+  </div>
+  <button class="btn" onclick="saveSetup()">Начать →</button>
+  <div id="setup-error" style="color:var(--danger);font-size:12px;text-align:center;min-height:16px;"></div>
+</div>
+
+<!-- ── DB LIST SCREEN ── -->
+<div id="screen-db" class="screen">
+  <div class="screen-title">Базы данных</div>
+  <div class="db-list" id="db-list"></div>
+  <button class="btn" onclick="showOnboard()" style="margin-top:auto;">+ Создать базу</button>
+  <button class="btn btn-ghost" onclick="showSetup()" style="margin-top:8px;">Настройки</button>
+</div>
+
+<!-- ── ONBOARDING SCREEN ── -->
+<div id="screen-onboard" class="screen">
+  <div class="screen-title">Новая база</div>
+  <div class="chat-area" id="onboard-chat"></div>
+  <div id="proposal-area" style="display:none;">
+    <div class="proposal-box">
+      <div class="proposal-title">Предлагаю структуру</div>
+      <div class="proposal-name" id="proposal-name"></div>
+      <div class="proposal-fields" id="proposal-fields"></div>
+    </div>
+    <div class="onboard-actions" style="margin-top:10px;">
+      <button class="btn" onclick="acceptProposal()">✓ Принять и создать</button>
+      <button class="btn btn-ghost" onclick="refineProposal()">Изменить голосом</button>
+      <button class="btn btn-ghost" onclick="showDB()">Отмена</button>
+    </div>
+  </div>
+  <div id="onboard-input-area" class="onboard-actions">
+    <div class="status-line" id="onboard-status"></div>
+    <button class="mic-btn" id="onboard-mic" onclick="toggleOnboardMic()">🎤</button>
+  </div>
+</div>
+
+<!-- ── RECORD SCREEN ── -->
+<div id="screen-record" class="screen">
+  <header>
+    <div class="logo">◦ pebble</div>
+    <div class="db-selector" onclick="showDB()">
+      <span class="db-name" id="active-db-name">—</span>
+      <span style="color:var(--text-dim)">▾</span>
+    </div>
+  </header>
+  <div class="record-header">
+    <div class="fields-hint" id="fields-hint"></div>
+  </div>
+  <div class="chips-area" id="chips-area">
+    <div class="empty-state" id="chips-empty" style="width:100%">
+      <div style="font-size:32px">◦</div>
+      <div>Нажми микрофон и<br>продиктуй значения</div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <div class="status-line" id="record-status"></div>
+    <button class="mic-btn" id="record-mic" onclick="toggleRecordMic()">🎤</button>
+    <div class="bottom-actions">
+      <button class="btn-sm btn-clear" onclick="clearRow()">Очистить</button>
+      <button class="btn-sm btn-save" onclick="saveRow()" id="btn-save" disabled>Записать →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── EDIT MODAL ── -->
+<div class="modal-overlay" id="edit-modal" onclick="closeEditModal(event)">
+  <div class="modal">
+    <div class="modal-title">Редактировать</div>
+    <div>
+      <div class="modal-field" id="edit-field-label"></div>
+      <input type="text" id="edit-input" style="margin-top:4px;">
+    </div>
+    <button class="btn" onclick="confirmEdit()">Сохранить</button>
+    <button class="btn btn-ghost" onclick="closeEditModal()">Отмена</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let state = {
+  apiKey: '',
+  scriptUrl: '',
+  scriptToken: '',
+  dbs: [],           // [{name, fields:[]}]
+  activeDb: null,    // {name, fields}
+  currentRow: {},    // {fieldName: value}
+  proposal: null,    // {name, fields}
+  editingChip: null  // fieldName
+};
+
+// Chip colors — one per field index
+const CHIP_COLORS = ['#7eb89a','#8ba8c8','#c8a87e','#b87eb8','#c4c87e','#7eb8b8','#c87e8b','#9ab87e'];
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+(function init() {
+  state.apiKey = localStorage.getItem('pb_key') || '';
+  state.scriptUrl = localStorage.getItem('pb_url') || '';
+  state.scriptToken = localStorage.getItem('pb_token') || '';
+
+  if (state.apiKey && state.scriptUrl && state.scriptToken) {
+    loadDBs().then(() => showDB());
+  }
+})();
+
+// ═══════════════════════════════════════════════════════
+// SCREEN NAVIGATION
+// ═══════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+function showSetup() {
+  document.getElementById('setup-key').value = state.apiKey;
+  document.getElementById('setup-url').value = state.scriptUrl;
+  document.getElementById('setup-token').value = state.scriptToken;
+  showScreen('setup');
+}
+
+function showDB() {
+  stopMic();
+  renderDBList();
+  showScreen('db');
+}
+
+function showOnboard() {
+  document.getElementById('onboard-chat').innerHTML = '';
+  document.getElementById('proposal-area').style.display = 'none';
+  document.getElementById('onboard-input-area').style.display = 'flex';
+  state.proposal = null;
+  showScreen('onboard');
+  addAIMsg('Что хочешь записывать? Расскажи — я предложу структуру таблицы.');
+}
+
+function showRecord(db) {
+  state.activeDb = db;
+  state.currentRow = {};
+  document.getElementById('active-db-name').textContent = db.name;
+  renderFieldsHint();
+  renderChips();
+  showScreen('record');
+}
+
+// ═══════════════════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════════════════
+async function saveSetup() {
+  const key = document.getElementById('setup-key').value.trim();
+  const url = document.getElementById('setup-url').value.trim();
+  const token = document.getElementById('setup-token').value.trim();
+  const err = document.getElementById('setup-error');
+
+  if (!key || !url || !token) { err.textContent = 'Заполни все поля'; return; }
+
+  err.textContent = 'Проверяю...';
+
+  try {
+    const res = await fetch(`${url}?action=list&token=${encodeURIComponent(token)}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    state.apiKey = key;
+    state.scriptUrl = url;
+    state.scriptToken = token;
+    state.dbs = data.bases || [];
+
+    localStorage.setItem('pb_key', key);
+    localStorage.setItem('pb_url', url);
+    localStorage.setItem('pb_token', token);
+
+    err.textContent = '';
+    showDB();
+  } catch(e) {
+    err.textContent = 'Ошибка: ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// DB MANAGEMENT
+// ═══════════════════════════════════════════════════════
+async function loadDBs() {
+  try {
+    const res = await fetch(`${state.scriptUrl}?action=list&token=${encodeURIComponent(state.scriptToken)}`);
+    const data = await res.json();
+    state.dbs = data.bases || [];
+  } catch(e) { state.dbs = []; }
+}
+
+function renderDBList() {
+  const list = document.getElementById('db-list');
+  if (!state.dbs.length) {
+    list.innerHTML = '<div class="empty-state"><div style="font-size:32px">◦</div><div>Нет баз данных.<br>Создай первую.</div></div>';
+    return;
+  }
+  list.innerHTML = state.dbs.map((db, i) => `
+    <div class="db-item" onclick="selectDB(${i})">
+      <div>
+        <div class="db-item-name">${db.name}</div>
+        <div class="db-item-fields">${db.fields.join(' · ')}</div>
+      </div>
+      <button class="db-item-del" onclick="event.stopPropagation();deleteDB(${i})">×</button>
+    </div>
+  `).join('');
+}
+
+function selectDB(i) {
+  showRecord(state.dbs[i]);
+}
+
+async function deleteDB(i) {
+  const db = state.dbs[i];
+  if (!confirm(`Удалить базу «${db.name}»?`)) return;
+  try {
+    await scriptPost({ action: 'delete', sheet: db.name });
+    state.dbs.splice(i, 1);
+    renderDBList();
+    toast('Удалено');
+  } catch(e) { toast('Ошибка: ' + e.message, true); }
+}
+
+// ═══════════════════════════════════════════════════════
+// ONBOARDING
+// ═══════════════════════════════════════════════════════
+let onboardHistory = [];
+
+function addAIMsg(text) {
+  const chat = document.getElementById('onboard-chat');
+  const div = document.createElement('div');
+  div.className = 'msg msg-ai';
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function addUserMsg(text) {
+  const chat = document.getElementById('onboard-chat');
+  const div = document.createElement('div');
+  div.className = 'msg msg-user';
+  div.textContent = text;
+  chat.appendChild(div);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+async function sendOnboardMessage(text) {
+  addUserMsg(text);
+  onboardHistory.push({ role: 'user', content: text });
+
+  const status = document.getElementById('onboard-status');
+  status.innerHTML = '<span class="spinner"></span>думаю...';
+  status.className = 'status-line thinking';
+
+  const systemPrompt = `Ты помогаешь пользователю создать структуру таблицы для записи данных голосом.
+
+Твоя задача: понять что пользователь хочет записывать и предложить названия базы данных и перечень полей.
+
+Правила:
+- Задавай короткие уточняющие вопросы если нужно
+- Когда понял задачу — предложи структуру в формате JSON
+- Отвечай только на русском
+- Имена полей — короткие, на русском
+
+Когда готов предложить структуру, ответь ТОЛЬКО в формате JSON (без markdown, без пояснений):
+{"name": "Название базы", "fields": ["поле1", "поле2", "поле3"]}
+
+Если нужно уточнить — отвечай обычным текстом.`;
+
+  try {
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [{ role: 'system', content: systemPrompt }, ...onboardHistory],
+        temperature: 0.7
+      })
+    });
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content || '';
+    onboardHistory.push({ role: 'assistant', content: reply });
+
+    // Попробовать распарсить как JSON
+    try {
+      const parsed = JSON.parse(reply.trim());
+      if (parsed.name && parsed.fields) {
+        status.textContent = '';
+        status.className = 'status-line';
+        showProposal(parsed);
+        return;
+      }
+    } catch(e) {}
+
+    // Обычный текстовый ответ
+    addAIMsg(reply);
+    status.textContent = '';
+    status.className = 'status-line';
+  } catch(e) {
+    status.textContent = 'Ошибка API';
+    status.className = 'status-line error';
+  }
+}
+
+function showProposal(proposal) {
+  state.proposal = proposal;
+  document.getElementById('proposal-name').textContent = proposal.name;
+  document.getElementById('proposal-fields').textContent = proposal.fields.join(', ');
+  document.getElementById('proposal-area').style.display = 'block';
+  document.getElementById('onboard-input-area').style.display = 'none';
+}
+
+async function acceptProposal() {
+  if (!state.proposal) return;
+  try {
+    const result = await scriptPost({
+      action: 'create',
+      sheet: state.proposal.name,
+      fields: state.proposal.fields
+    });
+    if (result.error) throw new Error(result.error);
+    state.dbs.push({ name: state.proposal.name, fields: state.proposal.fields });
+    toast('База создана');
+    showRecord({ name: state.proposal.name, fields: state.proposal.fields });
+  } catch(e) { toast('Ошибка: ' + e.message, true); }
+}
+
+function refineProposal() {
+  document.getElementById('proposal-area').style.display = 'none';
+  document.getElementById('onboard-input-area').style.display = 'flex';
+  addAIMsg('Что изменить?');
+}
+
+// ═══════════════════════════════════════════════════════
+// RECORD SCREEN
+// ═══════════════════════════════════════════════════════
+function renderFieldsHint() {
+  const hint = document.getElementById('fields-hint');
+  hint.innerHTML = state.activeDb.fields.map((f, i) => {
+    const filled = state.currentRow[f] !== undefined;
+    return `<span class="field-badge ${filled ? 'filled' : ''}" 
+      style="${filled ? `background:${CHIP_COLORS[i % CHIP_COLORS.length]}; color:#0f0f0f;` : ''}">${f}</span>`;
+  }).join('');
+}
+
+function renderChips() {
+  const area = document.getElementById('chips-area');
+  const empty = document.getElementById('chips-empty');
+  const entries = Object.entries(state.currentRow);
+
+  if (!entries.length) {
+    empty.style.display = 'flex';
+    // Remove all chips
+    area.querySelectorAll('.chip').forEach(c => c.remove());
+    document.getElementById('btn-save').disabled = true;
+    return;
+  }
+
+  empty.style.display = 'none';
+  area.querySelectorAll('.chip').forEach(c => c.remove());
+
+  entries.forEach(([field, value]) => {
+    const i = state.activeDb.fields.indexOf(field);
+    const color = CHIP_COLORS[i % CHIP_COLORS.length];
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.field = field;
+    chip.style.background = color;
+    chip.innerHTML = `
+      <span class="chip-label">${field}</span>
+      <span class="chip-value">${value}</span>
+      <button class="chip-del" onclick="event.stopPropagation();removeChip('${field}')">×</button>
+    `;
+    chip.addEventListener('click', () => openEditModal(field, value));
+    area.insertBefore(chip, empty);
+  });
+
+  // Enable save if at least one field filled
+  document.getElementById('btn-save').disabled = false;
+}
+
+function removeChip(field) {
+  delete state.currentRow[field];
+  renderFieldsHint();
+  renderChips();
+}
+
+function clearRow() {
+  state.currentRow = {};
+  renderFieldsHint();
+  renderChips();
+}
+
+async function saveRow() {
+  const btn = document.getElementById('btn-save');
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const result = await scriptPost({
+      action: 'append',
+      sheet: state.activeDb.name,
+      row: state.currentRow
+    });
+    if (result.error) throw new Error(result.error);
+    toast('Записано ✓');
+    clearRow();
+  } catch(e) {
+    toast('Ошибка: ' + e.message, true);
+  }
+  btn.disabled = false;
+  btn.textContent = 'Записать →';
+}
+
+// ═══════════════════════════════════════════════════════
+// VOICE — RECORD SCREEN
+// ═══════════════════════════════════════════════════════
+let recordRecognition = null;
+let isRecordListening = false;
+
+function toggleRecordMic() {
+  if (isRecordListening) {
+    stopMic();
+  } else {
+    startRecordMic();
+  }
+}
+
+function startRecordMic() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { setRecordStatus('Браузер не поддерживает голос', 'error'); return; }
+
+  recordRecognition = new SpeechRecognition();
+  recordRecognition.lang = 'ru-RU';
+  recordRecognition.continuous = false;
+  recordRecognition.interimResults = false;
+
+  recordRecognition.onstart = () => {
+    isRecordListening = true;
+    document.getElementById('record-mic').classList.add('listening');
+    setRecordStatus('слушаю...', 'listening');
+  };
+
+  recordRecognition.onresult = async (e) => {
+    const text = e.results[0][0].transcript;
+    isRecordListening = false;
+    document.getElementById('record-mic').classList.remove('listening');
+    await parseVoiceToFields(text);
+  };
+
+  recordRecognition.onerror = (e) => {
+    isRecordListening = false;
+    document.getElementById('record-mic').classList.remove('listening');
+    if (e.error !== 'no-speech') setRecordStatus('Ошибка: ' + e.error, 'error');
+    else setRecordStatus('', '');
+  };
+
+  recordRecognition.onend = () => {
+    isRecordListening = false;
+    document.getElementById('record-mic').classList.remove('listening');
+  };
+
+  recordRecognition.start();
+}
+
+async function parseVoiceToFields(text) {
+  setRecordStatus('разбираю...', 'thinking');
+  document.getElementById('record-mic').classList.add('thinking');
+
+  const fields = state.activeDb.fields;
+  const existing = JSON.stringify(state.currentRow);
+
+  const systemPrompt = `Ты помогаешь заполнять таблицу по голосовому вводу.
+
+Поля таблицы: ${fields.join(', ')}
+Уже заполнено: ${existing}
+
+Пользователь продиктовал текст. Разбери его и извлеки значения для полей.
+Исправь очевидные ошибки распознавания речи.
+Верни ТОЛЬКО JSON без пояснений и markdown:
+{"поле": "значение", ...}
+
+Включай только те поля, для которых нашёл значения в тексте.
+Если текст — команда (например "записать", "очистить") — верни {"_cmd": "save"} или {"_cmd": "clear"}.`;
+
+  try {
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text }
+        ],
+        temperature: 0.3
+      })
+    });
+    const data = await res.json();
+    const reply = data.choices?.[0]?.message?.content?.trim() || '{}';
+
+    let parsed;
+    try { parsed = JSON.parse(reply); } catch(e) { parsed = {}; }
+
+    if (parsed._cmd === 'save') { await saveRow(); }
+    else if (parsed._cmd === 'clear') { clearRow(); }
+    else {
+      Object.assign(state.currentRow, parsed);
+      renderFieldsHint();
+      renderChips();
+    }
+
+    setRecordStatus('', '');
+  } catch(e) {
+    setRecordStatus('Ошибка API', 'error');
+  }
+
+  document.getElementById('record-mic').classList.remove('thinking');
+}
+
+function setRecordStatus(text, type) {
+  const el = document.getElementById('record-status');
+  el.textContent = text;
+  el.className = 'status-line' + (type ? ' ' + type : '');
+}
+
+// ═══════════════════════════════════════════════════════
+// VOICE — ONBOARDING
+// ═══════════════════════════════════════════════════════
+let onboardRecognition = null;
+let isOnboardListening = false;
+
+function toggleOnboardMic() {
+  if (isOnboardListening) {
+    onboardRecognition?.stop();
+  } else {
+    startOnboardMic();
+  }
+}
+
+function startOnboardMic() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) { return; }
+
+  onboardRecognition = new SpeechRecognition();
+  onboardRecognition.lang = 'ru-RU';
+  onboardRecognition.continuous = false;
+  onboardRecognition.interimResults = false;
+
+  onboardRecognition.onstart = () => {
+    isOnboardListening = true;
+    document.getElementById('onboard-mic').classList.add('listening');
+    document.getElementById('onboard-status').textContent = 'слушаю...';
+    document.getElementById('onboard-status').className = 'status-line listening';
+  };
+
+  onboardRecognition.onresult = async (e) => {
+    const text = e.results[0][0].transcript;
+    isOnboardListening = false;
+    document.getElementById('onboard-mic').classList.remove('listening');
+    await sendOnboardMessage(text);
+  };
+
+  onboardRecognition.onerror = () => {
+    isOnboardListening = false;
+    document.getElementById('onboard-mic').classList.remove('listening');
+    document.getElementById('onboard-status').textContent = '';
+  };
+
+  onboardRecognition.onend = () => {
+    isOnboardListening = false;
+    document.getElementById('onboard-mic').classList.remove('listening');
+  };
+
+  onboardRecognition.start();
+}
+
+function stopMic() {
+  recordRecognition?.stop();
+  onboardRecognition?.stop();
+  isRecordListening = false;
+  isOnboardListening = false;
+  document.getElementById('record-mic')?.classList.remove('listening', 'thinking');
+  document.getElementById('onboard-mic')?.classList.remove('listening');
+}
+
+// ═══════════════════════════════════════════════════════
+// EDIT MODAL
+// ═══════════════════════════════════════════════════════
+function openEditModal(field, value) {
+  state.editingChip = field;
+  document.getElementById('edit-field-label').textContent = field;
+  document.getElementById('edit-input').value = value;
+  document.getElementById('edit-modal').classList.add('open');
+  setTimeout(() => document.getElementById('edit-input').focus(), 100);
+}
+
+function confirmEdit() {
+  const val = document.getElementById('edit-input').value.trim();
+  if (val && state.editingChip) {
+    state.currentRow[state.editingChip] = val;
+    renderFieldsHint();
+    renderChips();
+  }
+  closeEditModal();
+}
+
+function closeEditModal(e) {
+  if (e && e.target !== document.getElementById('edit-modal')) return;
+  document.getElementById('edit-modal').classList.remove('open');
+  state.editingChip = null;
+}
+
+document.getElementById('edit-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') confirmEdit();
+});
+
+// ═══════════════════════════════════════════════════════
+// SCRIPT API
+// ═══════════════════════════════════════════════════════
+async function scriptPost(body) {
+  body.token = state.scriptToken;
+  const res = await fetch(state.scriptUrl, {
+    method: 'POST',
+    body: JSON.stringify(body)
+  });
+  return await res.json();
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function toast(msg, error = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (error ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 2500);
+}
+</script>
+</body>
+</html>
