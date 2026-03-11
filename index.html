@@ -266,21 +266,65 @@
     border-radius: 20px;
     border: 1px solid var(--border);
     color: var(--text-dim);
-    transition: all 0.2s;
-  }
-  .field-badge.filled {
-    color: var(--bg);
-    border-color: transparent;
   }
 
   /* CHIPS AREA */
   .chips-area {
     flex: 1;
-    padding: 16px 20px;
+    padding: 12px 20px;
     overflow-y: auto;
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     align-content: flex-start;
+    gap: 10px;
+  }
+
+  /* ── ROW GROUP ── */
+  .row-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 10px 10px;
+    animation: groupIn 0.2s ease;
+  }
+  @keyframes groupIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .row-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+  }
+
+  .row-group-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .row-del-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    transition: color 0.15s;
+  }
+  .row-del-btn:active { color: var(--danger); }
+
+  .row-chips {
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
@@ -303,7 +347,6 @@
   }
 
   .chip-label { opacity: 0.7; font-size: 10px; font-weight: 400; }
-  .chip-value { }
   .chip-del {
     background: rgba(0,0,0,0.2);
     border: none;
@@ -537,8 +580,8 @@
     <div class="status-line" id="record-status"></div>
     <button class="mic-btn" id="record-mic" onclick="toggleRecordMic()">🎤</button>
     <div class="bottom-actions">
-      <button class="btn-sm btn-clear" onclick="clearRow()">Очистить</button>
-      <button class="btn-sm btn-save" onclick="saveRow()" id="btn-save" disabled>Записать →</button>
+      <button class="btn-sm btn-clear" onclick="clearRows()">Очистить</button>
+      <button class="btn-sm btn-save" onclick="saveRows()" id="btn-save" disabled>Записать →</button>
     </div>
   </div>
 </div>
@@ -568,9 +611,9 @@ let state = {
   scriptToken: '',
   dbs: [],           // [{name, fields:[]}]
   activeDb: null,    // {name, fields}
-  currentRow: {},    // {fieldName: value}
+  pendingRows: [],   // [{fieldName: value}, ...] — накопленные строки
   proposal: null,    // {name, fields}
-  editingChip: null  // fieldName
+  editingChip: null  // {rowIndex, field}
 };
 
 // Chip colors — one per field index
@@ -621,10 +664,10 @@ function showOnboard() {
 
 function showRecord(db) {
   state.activeDb = db;
-  state.currentRow = {};
+  state.pendingRows = [];
   document.getElementById('active-db-name').textContent = db.name;
   renderFieldsHint();
-  renderChips();
+  renderRows();
   showScreen('record');
 }
 
@@ -816,82 +859,128 @@ function refineProposal() {
 }
 
 // ═══════════════════════════════════════════════════════
-// RECORD SCREEN
+// RECORD SCREEN — RENDER
 // ═══════════════════════════════════════════════════════
 function renderFieldsHint() {
   const hint = document.getElementById('fields-hint');
-  hint.innerHTML = state.activeDb.fields.map((f, i) => {
-    const filled = state.currentRow[f] !== undefined;
-    return `<span class="field-badge ${filled ? 'filled' : ''}" 
-      style="${filled ? `background:${CHIP_COLORS[i % CHIP_COLORS.length]}; color:#0f0f0f;` : ''}">${f}</span>`;
-  }).join('');
+  hint.innerHTML = state.activeDb.fields.map(f =>
+    `<span class="field-badge">${f}</span>`
+  ).join('');
 }
 
-function renderChips() {
+function renderRows() {
   const area = document.getElementById('chips-area');
   const empty = document.getElementById('chips-empty');
-  const entries = Object.entries(state.currentRow);
 
-  if (!entries.length) {
+  // Remove all row groups
+  area.querySelectorAll('.row-group').forEach(g => g.remove());
+
+  if (!state.pendingRows.length) {
     empty.style.display = 'flex';
-    // Remove all chips
-    area.querySelectorAll('.chip').forEach(c => c.remove());
     document.getElementById('btn-save').disabled = true;
     return;
   }
 
   empty.style.display = 'none';
-  area.querySelectorAll('.chip').forEach(c => c.remove());
 
-  entries.forEach(([field, value]) => {
-    const i = state.activeDb.fields.indexOf(field);
-    const color = CHIP_COLORS[i % CHIP_COLORS.length];
-    const chip = document.createElement('div');
-    chip.className = 'chip';
-    chip.dataset.field = field;
-    chip.style.background = color;
-    chip.innerHTML = `
-      <span class="chip-label">${field}</span>
-      <span class="chip-value">${value}</span>
-      <button class="chip-del" onclick="event.stopPropagation();removeChip('${field}')">×</button>
+  state.pendingRows.forEach((row, rowIndex) => {
+    const group = document.createElement('div');
+    group.className = 'row-group';
+    group.dataset.rowIndex = rowIndex;
+
+    // Header
+    const header = document.createElement('div');
+    header.className = 'row-group-header';
+    header.innerHTML = `
+      <span class="row-group-label">Строка ${rowIndex + 1}</span>
+      <button class="row-del-btn" onclick="deleteRow(${rowIndex})">🗑</button>
     `;
-    chip.addEventListener('click', () => openEditModal(field, value));
-    area.insertBefore(chip, empty);
+    group.appendChild(header);
+
+    // Chips
+    const chipsWrap = document.createElement('div');
+    chipsWrap.className = 'row-chips';
+
+    const entries = Object.entries(row);
+    if (!entries.length) {
+      chipsWrap.innerHTML = '<span style="color:var(--text-dim);font-size:11px;padding:2px 4px;">пусто</span>';
+    } else {
+      entries.forEach(([field, value]) => {
+        const i = state.activeDb.fields.indexOf(field);
+        const color = CHIP_COLORS[i >= 0 ? i % CHIP_COLORS.length : 0];
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.style.background = color;
+        chip.innerHTML = `
+          <span class="chip-label">${field}</span>
+          <span class="chip-value">${value}</span>
+          <button class="chip-del" onclick="event.stopPropagation();removeChip(${rowIndex},'${field.replace(/'/g,"\\'")}')">×</button>
+        `;
+        chip.addEventListener('click', () => openEditModal(rowIndex, field, value));
+        chipsWrap.appendChild(chip);
+      });
+    }
+
+    group.appendChild(chipsWrap);
+    area.insertBefore(group, empty);
   });
 
-  // Enable save if at least one field filled
-  document.getElementById('btn-save').disabled = false;
+  // Update save button label
+  const btn = document.getElementById('btn-save');
+  btn.disabled = false;
+  btn.textContent = state.pendingRows.length > 1
+    ? `Записать ${state.pendingRows.length} →`
+    : 'Записать →';
 }
 
-function removeChip(field) {
-  delete state.currentRow[field];
-  renderFieldsHint();
-  renderChips();
+function removeChip(rowIndex, field) {
+  delete state.pendingRows[rowIndex][field];
+  renderRows();
 }
 
-function clearRow() {
-  state.currentRow = {};
-  renderFieldsHint();
-  renderChips();
+function deleteRow(rowIndex) {
+  state.pendingRows.splice(rowIndex, 1);
+  renderRows();
 }
 
-async function saveRow() {
+function clearRows() {
+  state.pendingRows = [];
+  renderRows();
+}
+
+async function saveRows() {
   const btn = document.getElementById('btn-save');
   btn.disabled = true;
-  btn.textContent = '...';
-  try {
-    const result = await scriptPost({
-      action: 'append',
-      sheet: state.activeDb.name,
-      row: state.currentRow
-    });
-    if (result.error) throw new Error(result.error);
-    toast('Записано ✓');
-    clearRow();
-  } catch(e) {
-    toast('Ошибка: ' + e.message, true);
+  const total = state.pendingRows.length;
+  btn.textContent = `0 / ${total}...`;
+
+  let saved = 0;
+  const errors = [];
+
+  for (let i = 0; i < state.pendingRows.length; i++) {
+    const row = state.pendingRows[i];
+    if (!Object.keys(row).length) continue;
+    try {
+      const result = await scriptPost({
+        action: 'append',
+        sheet: state.activeDb.name,
+        row
+      });
+      if (result.error) throw new Error(result.error);
+      saved++;
+      btn.textContent = `${saved} / ${total}...`;
+    } catch(e) {
+      errors.push(`Строка ${i+1}: ${e.message}`);
+    }
   }
-  btn.disabled = false;
+
+  if (errors.length) {
+    toast(`Ошибки: ${errors.join('; ')}`, true);
+  } else {
+    toast(total > 1 ? `Записано ${saved} строк ✓` : 'Записано ✓');
+  }
+
+  clearRows();
   btn.textContent = 'Записать →';
 }
 
@@ -928,7 +1017,7 @@ function startRecordMic() {
     const text = e.results[0][0].transcript;
     isRecordListening = false;
     document.getElementById('record-mic').classList.remove('listening');
-    await parseVoiceToFields(text);
+    await parseVoiceToRows(text);
   };
 
   recordRecognition.onerror = (e) => {
@@ -946,25 +1035,30 @@ function startRecordMic() {
   recordRecognition.start();
 }
 
-async function parseVoiceToFields(text) {
+async function parseVoiceToRows(text) {
   setRecordStatus('разбираю...', 'thinking');
   document.getElementById('record-mic').classList.add('thinking');
 
   const fields = state.activeDb.fields;
-  const existing = JSON.stringify(state.currentRow);
 
   const systemPrompt = `Ты помогаешь заполнять таблицу по голосовому вводу.
 
 Поля таблицы: ${fields.join(', ')}
-Уже заполнено: ${existing}
 
-Пользователь продиктовал текст. Разбери его и извлеки значения для полей.
+Пользователь продиктовал текст. Разбери его и извлеки значения.
 Исправь очевидные ошибки распознавания речи.
-Верни ТОЛЬКО JSON без пояснений и markdown:
-{"поле": "значение", ...}
 
-Включай только те поля, для которых нашёл значения в тексте.
-Если текст — команда (например "записать", "очистить") — верни {"_cmd": "save"} или {"_cmd": "clear"}.`;
+ВАЖНО: если в тексте перечислено несколько позиций (разделённых словом "ещё", "и ещё", или просто через запятую/паузу) — верни МАССИВ объектов, по одному на каждую позицию.
+Если позиция одна — верни один объект (не массив).
+
+Верни ТОЛЬКО JSON без пояснений и markdown.
+
+Примеры:
+Одна позиция: {"название": "дрель", "полка": "верхняя"}
+Несколько: [{"название": "стул"}, {"название": "стол"}, {"название": "кровать"}]
+
+Если текст — команда (например "записать", "очистить") — верни {"_cmd": "save"} или {"_cmd": "clear"}.
+Включай только те поля, для которых нашёл значения в тексте.`;
 
   try {
     const res = await fetch('https://api.deepseek.com/chat/completions', {
@@ -985,12 +1079,20 @@ async function parseVoiceToFields(text) {
     let parsed;
     try { parsed = JSON.parse(reply); } catch(e) { parsed = {}; }
 
-    if (parsed._cmd === 'save') { await saveRow(); }
-    else if (parsed._cmd === 'clear') { clearRow(); }
-    else {
-      Object.assign(state.currentRow, parsed);
-      renderFieldsHint();
-      renderChips();
+    if (parsed._cmd === 'save') {
+      await saveRows();
+    } else if (parsed._cmd === 'clear') {
+      clearRows();
+    } else if (Array.isArray(parsed)) {
+      // Несколько строк — добавляем все
+      parsed.forEach(row => {
+        if (Object.keys(row).length > 0) state.pendingRows.push(row);
+      });
+      renderRows();
+    } else if (Object.keys(parsed).length > 0) {
+      // Одна строка — добавляем
+      state.pendingRows.push(parsed);
+      renderRows();
     }
 
     setRecordStatus('', '');
@@ -1070,8 +1172,8 @@ function stopMic() {
 // ═══════════════════════════════════════════════════════
 // EDIT MODAL
 // ═══════════════════════════════════════════════════════
-function openEditModal(field, value) {
-  state.editingChip = field;
+function openEditModal(rowIndex, field, value) {
+  state.editingChip = { rowIndex, field };
   document.getElementById('edit-field-label').textContent = field;
   document.getElementById('edit-input').value = value;
   document.getElementById('edit-modal').classList.add('open');
@@ -1081,9 +1183,9 @@ function openEditModal(field, value) {
 function confirmEdit() {
   const val = document.getElementById('edit-input').value.trim();
   if (val && state.editingChip) {
-    state.currentRow[state.editingChip] = val;
-    renderFieldsHint();
-    renderChips();
+    const { rowIndex, field } = state.editingChip;
+    state.pendingRows[rowIndex][field] = val;
+    renderRows();
   }
   closeEditModal();
 }
