@@ -1004,7 +1004,7 @@ function startRecordMic() {
 
   recordRecognition = new SpeechRecognition();
   recordRecognition.lang = 'ru-RU';
-  recordRecognition.continuous = false;
+  recordRecognition.continuous = true;
   recordRecognition.interimResults = false;
 
   recordRecognition.onstart = () => {
